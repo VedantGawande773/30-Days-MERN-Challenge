@@ -1,6 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 app.use(express.json());
@@ -67,22 +69,64 @@ res.status(500).json({ message: 'Server error' });
 app.post('/post/profile', async (req, res) => {
    try {
       const { username, email, password } = req.body;
+
+      const hashedPassword = await bcrypt.hash(password, 10);
   
       const newProfile = new Profile({
         username,
         email,
-        password,
+        password: hashedPassword, 
       });
   
       const savedProfile = await newProfile.save();
       res.status(201).json(savedProfile);
    } catch (error) {
       console.error(error);
-      // Respond with the actual error message and status code 500
-      // Note: Be cautious with this approach in production environments
       res.status(500).json({ message: error.message });
    }
   });
+
+  app.post('/login', async (req, res) => {
+   try {
+      const { username, password } = req.body;
+  
+      // Find the user
+      const user = await Profile.findOne({ username });
+      if (!user) {
+        return res.status(400).json({ message: 'Invalid username or password' });
+      }
+  
+      // Check the password
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        return res.status(400).json({ message: 'Invalid username or password' });
+      }
+  
+      // Generate a JWT
+      const token = jwt.sign({ _id: user._id }, 'your_jwt_secret', { expiresIn: '1h' });
+  
+      res.json({ token });
+   } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: error.message });
+   }
+  });
+  
+  const verifyToken = (req, res, next) => {
+ const token = req.header('Authorization');
+ if (!token) {
+    return res.status(401).json({ message: 'Access denied. No token provided.' });
+ }
+
+ try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    req.user = decoded;
+    next();
+ } catch (error) {
+    res.status(400).json({ message: 'Invalid token.' });
+ }
+};
+
   
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

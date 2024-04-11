@@ -1,100 +1,102 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios'; // Make sure to import axios
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
-const Day10 = () => {
- // Single state object for all form fields
- const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
- });
- const [dataSource, setDataSource] = useState([]);
- const [isLoading, setIsLoading] = useState(true);
+const UserProfile = () => {
+ const [usernames, setUsernames] = useState([]);
+ const [usernameInput, setUsernameInput] = useState('');
+ const [userDetails, setUserDetails] = useState(null);
+ const [editMode, setEditMode] = useState(false);
 
- const handleInputChange = (event) => {
-    const { name, value } = event.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
- };
+ useEffect(() => {
+    fetchUsernames();
+ }, []);
 
- useEffect( () => {
- fetchData();
- },[])
-
- const fetchData = async () => {
-  try {
-      const response = await axios.get(`http://localhost:5000/get/profile`);
-      console.log(response.data); // Log the response to verify it's an array
-      setDataSource(response.data);
-      setIsLoading(false); // Set loading to false after data is fetched
-  } catch (error) {
-      console.log(error);
-      setIsLoading(false); // Also set loading to false in case of error
-  }
- };
- 
- console.log(dataSource);
-
- const handleSubmit = async (event) => {
-    event.preventDefault(); // Prevent form from submitting normally
+ const fetchUsernames = async () => {
     try {
-      const payload = formData; // Use the formData state directly
-      const response = await axios.post(`http://localhost:5000/post/profile`, payload);
-      console.log(response.data); // Log the response or handle it as needed
+      const response = await axios.get('http://localhost:5000/get/profile');
+      setUsernames(response.data);
     } catch (error) {
-      console.error(error); // Handle error
+      console.error('Failed to fetch usernames:', error);
+    }
+ };
+
+ const fetchUserDetails = async () => {
+    try {
+      const response = await axios.get(`http://localhost:5000/get/profile/one?username=${usernameInput}`);
+      setUserDetails(response.data);
+    } catch (error) {
+      console.error('Failed to fetch user details:', error);
+    }
+ };
+
+ const handleUsernameChange = (e) => {
+    setUsernameInput(e.target.value);
+ };
+
+ const handleEditClick = () => {
+    setEditMode(true);
+ };
+
+ const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.put('http://localhost:5000/put/profile', {
+        username: userDetails.username,
+        updateProfile: {
+          email: userDetails.email,
+          password: userDetails.password, // Assuming you want to update the password as well
+        },
+      });
+      setUserDetails(response.data);
+      setEditMode(false);
+    } catch (error) {
+      console.error('Failed to update profile:', error);
     }
  };
 
  return (
     <div>
-      <form onSubmit={handleSubmit}>
-        <h2>User Profile</h2>
-        <input
-          type="text"
-          name="username"
-          placeholder="Username"
-          value={formData.username}
-          onChange={handleInputChange}
-        />
-        <br />
-        <input
-          type="text"
-          name="email"
-          placeholder="Email"
-          value={formData.email}
-          onChange={handleInputChange}
-        />
-        <br />
-        <input
-          type="text"
-          name="password"
-          placeholder="Password"
-          value={formData.password}
-          onChange={handleInputChange}
-        />
-        <br />
-        <button type="submit">Submit</button>
-      </form>
-
-
-      {isLoading ? (
-      <p>Loading...</p>
-    ) : (
-      dataSource.map((profile, index) => (
-        <div key={index}>
-          <h1>User Profile {index + 1}</h1>
-          <h3>Username : {profile.username}</h3>
-          <h3>Email : {profile.email}</h3>
-          <h3>Password : {profile.password}</h3>
+      <h2>Usernames</h2>
+      <ul>
+        {usernames.map((user) => (
+          <li key={user._id}>{user.username}</li>
+        ))}
+      </ul>
+      <h2>User Details</h2>
+      <input
+        type="text"
+        value={usernameInput}
+        onChange={handleUsernameChange}
+        placeholder="Enter username to fetch details"
+      />
+      <button onClick={fetchUserDetails}>Fetch Details</button>
+      {userDetails && (
+        <div>
+          <h3>{userDetails.username}</h3>
+          <p>Email: {userDetails.email}</p>
+          {editMode ? (
+            <form onSubmit={handleUpdateProfile}>
+              <input
+                type="email"
+                value={userDetails.email}
+                onChange={(e) => setUserDetails({ ...userDetails, email: e.target.value })}
+                placeholder="New email"
+              />
+              <input
+                type="password"
+                value={userDetails.password}
+                onChange={(e) => setUserDetails({ ...userDetails, password: e.target.value })}
+                placeholder="New password"
+              />
+              <button type="submit">Update Profile</button>
+            </form>
+          ) : (
+            <button onClick={handleEditClick}>Edit Details</button>
+          )}
         </div>
-      ))
-    )}
-
+      )}
     </div>
  );
 };
 
-export default Day10;
+export default UserProfile;
